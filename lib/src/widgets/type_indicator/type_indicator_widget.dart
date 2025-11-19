@@ -26,8 +26,8 @@ import '../../extensions/extensions.dart';
 import '../../models/chat_bubble.dart';
 import '../../models/config_models/profile_circle_configuration.dart';
 import '../../models/config_models/type_indicator_configuration.dart';
-import 'typing_dots_bubble.dart';
-import 'user_typing_builder.dart';
+import 'animated_bubble_builder.dart';
+import 'type_indicator_status_bubble.dart';
 
 class TypingIndicator extends StatefulWidget {
   const TypingIndicator({
@@ -196,8 +196,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
         alignment: Alignment.centerLeft,
         child: Padding(
           padding: typeIndicatorPadding,
-          child: UserTypingBuilder(
-            showProfileCircle: false,
+          child: AnimatedBubbleBuilder(
             animation: _largeBubbleAnimation,
             profileConfig: profileCircleConfiguration,
             bubble: widget.typeIndicatorConfig.customIndicator!,
@@ -219,10 +218,10 @@ class _TypingIndicatorState extends State<TypingIndicator>
           Positioned(
             left: typeIndicatorPadding.left,
             bottom: typeIndicatorPadding.bottom,
-            child: UserTypingBuilder(
+            child: AnimatedBubbleBuilder(
               animation: _largeBubbleAnimation,
               profileConfig: profileCircleConfiguration,
-              bubble: TypingDotsBubble(
+              bubble: TypeIndicatorStatusBubble(
                 dotIntervals: _dotIntervals,
                 jumpAnimations: _jumpAnimations,
                 chatBubbleConfig: widget.chatBubbleConfig,
