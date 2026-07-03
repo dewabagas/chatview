@@ -1,0 +1,7 @@
+# Local-only (untracked): mirrors the consuming app's override so the fork
+# resolves standalone for analyze/test. Maktub overrides chatview_utils to
+# the upstream git HEAD in its own pubspec.
+dependency_overrides:
+  chatview_utils:
+    git:
+      url: https://github.com/SimformSolutionsPvtLtd/chatview_utils.git

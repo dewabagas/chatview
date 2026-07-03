@@ -131,10 +131,13 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
       vsync: this,
       duration: const Duration(milliseconds: 250),
     );
-    _slideAnimation =
-        Tween<Offset>(begin: Offset.zero, end: Offset.zero).animate(
-      CurvedAnimation(curve: Curves.decelerate, parent: _animationController!),
-    );
+    _slideAnimation = Tween<Offset>(begin: Offset.zero, end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            curve: Curves.decelerate,
+            parent: _animationController!,
+          ),
+        );
   }
 
   @override
@@ -151,8 +154,9 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onHorizontalDragUpdate:
-          isEnableSwipeToSeeTime && !showPopUp ? _onHorizontalDrag : null,
+      onHorizontalDragUpdate: isEnableSwipeToSeeTime && !showPopUp
+          ? _onHorizontalDrag
+          : null,
       onHorizontalDragEnd: isEnableSwipeToSeeTime && !showPopUp
           ? (_) => _animationController?.reverse()
           : null,
@@ -238,7 +242,8 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
 
     final repliedMsgAutoScrollConfig =
         chatListConfig.repliedMessageConfig?.repliedMsgAutoScrollConfig;
-    final highlightDuration = repliedMsgAutoScrollConfig?.highlightDuration ??
+    final highlightDuration =
+        repliedMsgAutoScrollConfig?.highlightDuration ??
         const Duration(milliseconds: 300);
 
     // Scrolls to replied message and highlights
@@ -258,15 +263,13 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
 
   /// When user swipe at that time only animation is assigned with value.
   void _onHorizontalDrag(DragUpdateDetails details) {
-    _slideAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(-0.2, 0.0),
-    ).animate(
-      CurvedAnimation(
-        curve: chatBackgroundConfig.messageTimeAnimationCurve,
-        parent: _animationController!,
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(-0.2, 0.0)).animate(
+          CurvedAnimation(
+            curve: chatBackgroundConfig.messageTimeAnimationCurve,
+            parent: _animationController!,
+          ),
+        );
 
     details.delta.dx > 1
         ? _animationController?.reverse()
@@ -289,7 +292,8 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
       builder: (context, snapshot) {
         if (!snapshot.connectionState.isActive) {
           return Center(
-            child: chatBackgroundConfig.loadingWidget ??
+            child:
+                chatBackgroundConfig.loadingWidget ??
                 const CircularProgressIndicator.adaptive(),
           );
         } else {
@@ -318,102 +322,120 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
               ? messageLength + messageSeparator.length
               : messageLength;
 
-          return NotificationListener<ScrollUpdateNotification>(
-            onNotification: (notification) => _onScrollUpdateNotification(
-              notification,
-              messages,
-            ),
-            child: ListenableBuilder(
-              listenable: Listenable.merge([
-                _listKey,
-                chatViewIW?.chatTextFieldHeight,
-                _isNextPageLoading,
-                _isPrevPageLoading,
-              ]),
-              builder: (context, child) => ListView.builder(
-                key: _listKey.value,
-                controller: widget.scrollController,
-                // When reaction popup is being appeared at that user should not
-                // scroll.
-                physics:
-                    showPopUp ? const NeverScrollableScrollPhysics() : null,
-                padding: EdgeInsets.only(
-                  // Adds bottom space to the message list, ensuring it is displayed
-                  // above the message text field.
-                  bottom: chatViewIW?.chatTextFieldHeight.value ?? 0,
-                ),
-                reverse: true,
-                itemCount: _isPrevPageLoading.value ? ++itemCount : itemCount,
-                itemBuilder: (context, index) {
-                  // Since the list is reversed, check if it's the last item
-                  // to display the loading widget at top.
-                  if (_isPrevPageLoading.value && index == itemCount - 1) {
-                    return PaginationLoader(
-                      listenable: _isPrevPageLoading,
-                      loader: widget.loadingWidget,
-                    );
-                  }
-
-                  /// Check [messageSeparator] contains group separator for [index]
-                  if (enableSeparator && messageSeparator.containsKey(index)) {
-                    final separator = messageSeparator[index]!;
-                    return chatBackgroundConfig.groupSeparatorBuilder
-                            ?.call(separator.toString()) ??
-                        ChatGroupHeader(
-                          day: separator,
-                          groupSeparatorConfig:
-                              chatBackgroundConfig.defaultGroupSeparatorConfig,
-                        );
-                  }
-
-                  /// By removing separators encountered till now from the [index]
-                  /// so that we'll get actual index to display message in chat
-                  var newIndex = index - (separatorCounts[index] ?? 0);
-
-                  final messageChild = ValueListenableBuilder<String?>(
-                    valueListenable: _replyId,
-                    builder: (context, state, child) {
-                      final message = messages[newIndex];
-                      final messageKey =
-                          _messageKeys[message.id] ??= GlobalKey();
-                      final enableScrollToRepliedMsg = chatListConfig
-                              .repliedMessageConfig
-                              ?.repliedMsgAutoScrollConfig
-                              .enableScrollToRepliedMsg ??
-                          false;
-                      return ChatBubbleWidget(
-                        key: messageKey,
-                        message: message,
-                        slideAnimation: _slideAnimation,
-                        onLongPress: (yCoordinate, xCoordinate) =>
-                            widget.onChatBubbleLongPress(
-                          yCoordinate,
-                          xCoordinate,
-                          message,
-                        ),
-                        onSwipe: widget.assignReplyMessage,
-                        shouldHighlight: state == message.id,
-                        onReplyTap: enableScrollToRepliedMsg
-                            ? (id) => _onReplyTap(id, messages)
-                            : null,
-                      );
-                    },
+          // The list itself must NOT rebuild when the text field height
+          // changes: rebuilding ListView.builder swaps its child delegate,
+          // which rebuilds every visible row — on every frame of a composer
+          // or keyboard animation. The height-driven bottom inset is applied
+          // by a Padding OUTSIDE the list below, with the list passed as the
+          // cached `child`, so a height tick only relayouts the viewport.
+          final Widget messageList = ListenableBuilder(
+            listenable: Listenable.merge([
+              _listKey,
+              _isNextPageLoading,
+              _isPrevPageLoading,
+            ]),
+            builder: (context, child) => ListView.builder(
+              key: _listKey.value,
+              controller: widget.scrollController,
+              // When reaction popup is being appeared at that user should not
+              // scroll.
+              physics: showPopUp ? const NeverScrollableScrollPhysics() : null,
+              // Explicit zero keeps the ambient MediaQuery padding from
+              // re-applying now that the bottom inset lives outside the list.
+              padding: EdgeInsets.zero,
+              reverse: true,
+              // `itemCount + 1` (not `++itemCount`): the old increment mutated
+              // the captured variable, adding a phantom row per extra rebuild.
+              itemCount: _isPrevPageLoading.value ? itemCount + 1 : itemCount,
+              itemBuilder: (context, index) {
+                // Since the list is reversed, check if it's the extra
+                // (appended) item to display the loading widget at top.
+                if (_isPrevPageLoading.value && index == itemCount) {
+                  return PaginationLoader(
+                    listenable: _isPrevPageLoading,
+                    loader: widget.loadingWidget,
                   );
+                }
 
-                  return index != 0
-                      ? messageChild
-                      // Since the list is reversed, we need to check if
-                      // we are at the first item to display the typing indicator
-                      // , suggestions and loading widget.
-                      : EndMessageFooter(
-                          loadingWidget: widget.loadingWidget,
-                          isNextPageLoading: _isNextPageLoading,
-                          typingIndicatorNotifier: typingIndicatorNotifier,
-                          child: messageChild,
-                        );
-                },
-              ),
+                /// Check [messageSeparator] contains group separator for [index]
+                if (enableSeparator && messageSeparator.containsKey(index)) {
+                  final separator = messageSeparator[index]!;
+                  return chatBackgroundConfig.groupSeparatorBuilder?.call(
+                        separator.toString(),
+                      ) ??
+                      ChatGroupHeader(
+                        day: separator,
+                        groupSeparatorConfig:
+                            chatBackgroundConfig.defaultGroupSeparatorConfig,
+                      );
+                }
+
+                /// By removing separators encountered till now from the [index]
+                /// so that we'll get actual index to display message in chat
+                var newIndex = index - (separatorCounts[index] ?? 0);
+
+                final messageChild = ValueListenableBuilder<String?>(
+                  valueListenable: _replyId,
+                  builder: (context, state, child) {
+                    final message = messages[newIndex];
+                    final messageKey = _messageKeys[message.id] ??= GlobalKey();
+                    final enableScrollToRepliedMsg =
+                        chatListConfig
+                            .repliedMessageConfig
+                            ?.repliedMsgAutoScrollConfig
+                            .enableScrollToRepliedMsg ??
+                        false;
+                    return ChatBubbleWidget(
+                      key: messageKey,
+                      message: message,
+                      slideAnimation: _slideAnimation,
+                      onLongPress: (yCoordinate, xCoordinate) =>
+                          widget.onChatBubbleLongPress(
+                            yCoordinate,
+                            xCoordinate,
+                            message,
+                          ),
+                      onSwipe: widget.assignReplyMessage,
+                      shouldHighlight: state == message.id,
+                      onReplyTap: enableScrollToRepliedMsg
+                          ? (id) => _onReplyTap(id, messages)
+                          : null,
+                    );
+                  },
+                );
+
+                return index != 0
+                    ? messageChild
+                    // Since the list is reversed, we need to check if
+                    // we are at the first item to display the typing indicator
+                    // , suggestions and loading widget.
+                    : EndMessageFooter(
+                        loadingWidget: widget.loadingWidget,
+                        isNextPageLoading: _isNextPageLoading,
+                        typingIndicatorNotifier: typingIndicatorNotifier,
+                        child: messageChild,
+                      );
+              },
             ),
+          );
+
+          final textFieldHeight = chatViewIW?.chatTextFieldHeight;
+          return NotificationListener<ScrollUpdateNotification>(
+            onNotification: (notification) =>
+                _onScrollUpdateNotification(notification, messages),
+            child: textFieldHeight == null
+                ? messageList
+                : ValueListenableBuilder<double>(
+                    valueListenable: textFieldHeight,
+                    // The list is passed as the cached `child`: identical
+                    // widget instance across height ticks, so only this
+                    // Padding relayouts — no message row rebuilds.
+                    child: messageList,
+                    builder: (context, height, child) => Padding(
+                      padding: EdgeInsets.only(bottom: height),
+                      child: child!,
+                    ),
+                  ),
           );
         }
       },
@@ -432,10 +454,7 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
   }
 
   /// return DateTime by checking lastMatchedDate and message created DateTime
-  DateTime _groupBy(
-    Message message,
-    DateTime lastMatchedDate,
-  ) {
+  DateTime _groupBy(Message message, DateTime lastMatchedDate) {
     // If the conversation is ongoing on the same date,
     // return the same date [lastMatchedDate].
 
@@ -466,14 +485,8 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
     for (var i = 1; i < messages.length; i++) {
       final message = messages[i];
       _messageKeys.putIfAbsent(message.id, () => GlobalKey());
-      lastMatchedDate = _groupBy(
-        message,
-        lastMatchedDate,
-      );
-      final previousDate = _groupBy(
-        messages[i - 1],
-        lastMatchedDate,
-      );
+      lastMatchedDate = _groupBy(message, lastMatchedDate);
+      final previousDate = _groupBy(messages[i - 1], lastMatchedDate);
 
       if (previousDate == lastMatchedDate) {
         separatorCounts[i + counter] = counter;

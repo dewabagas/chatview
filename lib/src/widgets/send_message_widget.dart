@@ -96,17 +96,33 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
     return Align(
       alignment: Alignment.bottomCenter,
       child: isCustomTextField
-          ? Builder(
-              // Assign the key only when using a custom text field to measure its height,
-              // to preventing overlap with the message list.
-              key: chatViewIW?.chatTextFieldViewKey,
-              builder: (context) {
+          ? NotificationListener<SizeChangedLayoutNotification>(
+              // The post-frame measure below only fires on REBUILDS; a
+              // pure-layout change (e.g. an AnimatedSize reply preview
+              // growing) rebuilds nothing, leaving the list inset stale.
+              // SizeChangedLayoutNotifier fires on every size change, so
+              // re-measuring here keeps the inset tracking the composer
+              // frame by frame.
+              onNotification: (notification) {
                 WidgetsBinding.instance.addPostFrameCallback(
                   (_) => context.calculateAndUpdateTextFieldHeight(),
                 );
-                return widget.sendMessageBuilder?.call(_replyMessage) ??
-                    const SizedBox.shrink();
+                return true;
               },
+              child: SizeChangedLayoutNotifier(
+                child: Builder(
+                  // Assign the key only when using a custom text field to measure its height,
+                  // to preventing overlap with the message list.
+                  key: chatViewIW?.chatTextFieldViewKey,
+                  builder: (context) {
+                    WidgetsBinding.instance.addPostFrameCallback(
+                      (_) => context.calculateAndUpdateTextFieldHeight(),
+                    );
+                    return widget.sendMessageBuilder?.call(_replyMessage) ??
+                        const SizedBox.shrink();
+                  },
+                ),
+              ),
             )
           : SizedBox(
               width: MediaQuery.of(context).size.width,
@@ -120,11 +136,12 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                     left: 0,
                     bottom: 0,
                     child: Container(
-                      height: MediaQuery.of(context).size.height /
+                      height:
+                          MediaQuery.of(context).size.height /
                           ((!kIsWeb && Platform.isIOS) ? 24 : 28),
                       color:
                           chatListConfig.chatBackgroundConfig.backgroundColor ??
-                              Colors.white,
+                          Colors.white,
                     ),
                   ),
                   Positioned(
@@ -134,15 +151,19 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (chatViewIW?.featureActiveConfig
+                        if (chatViewIW
+                                ?.featureActiveConfig
                                 .enableScrollToBottomButton ??
                             true)
                           Align(
-                            alignment: scrollToBottomButtonConfig
-                                    ?.alignment?.alignment ??
+                            alignment:
+                                scrollToBottomButtonConfig
+                                    ?.alignment
+                                    ?.alignment ??
                                 Alignment.bottomCenter,
                             child: Padding(
-                              padding: scrollToBottomButtonConfig?.padding ??
+                              padding:
+                                  scrollToBottomButtonConfig?.padding ??
                                   EdgeInsets.zero,
                               child: const ScrollToBottomButton(),
                             ),
@@ -165,7 +186,8 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                                 builder: widget.replyMessageBuilder,
                                 onChange: (value) => _replyMessage = value,
                               ),
-                              if (widget.sendMessageConfig
+                              if (widget
+                                      .sendMessageConfig
                                       ?.shouldSendImageWithText ??
                                   false)
                                 SelectedImageViewWidget(
@@ -179,19 +201,25 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                                 sendMessageConfig: widget.sendMessageConfig,
                                 onRecordingComplete: _onRecordingComplete,
                                 onImageSelected: (images, messageId) {
-                                  if (widget.sendMessageConfig
+                                  if (widget
+                                          .sendMessageConfig
                                           ?.shouldSendImageWithText ??
                                       false) {
                                     if (images.isNotEmpty) {
-                                      _selectedImageViewWidgetKey.currentState
-                                          ?.selectedImages.value = [
+                                      _selectedImageViewWidgetKey
+                                          .currentState
+                                          ?.selectedImages
+                                          .value = [
                                         ...?_selectedImageViewWidgetKey
-                                            .currentState?.selectedImages.value,
-                                        images
+                                            .currentState
+                                            ?.selectedImages
+                                            .value,
+                                        images,
                                       ];
 
-                                      FocusScope.of(context)
-                                          .requestFocus(_focusNode);
+                                      FocusScope.of(
+                                        context,
+                                      ).requestFocus(_focusNode);
                                     }
                                   } else {
                                     _onImageSelected(images, '');
@@ -212,11 +240,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
 
   void _onRecordingComplete(String? path) {
     if (path != null) {
-      widget.onSendTap.call(
-        path,
-        _replyMessage,
-        MessageType.voice,
-      );
+      widget.onSendTap.call(path, _replyMessage, MessageType.voice);
       onCloseTap();
     }
   }
@@ -246,11 +270,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       _selectedImageViewWidgetKey.currentState?.selectedImages.value = [];
     }
 
-    widget.onSendTap.call(
-      messageText.trim(),
-      _replyMessage,
-      MessageType.text,
-    );
+    widget.onSendTap.call(messageText.trim(), _replyMessage, MessageType.text);
     onCloseTap();
   }
 
@@ -288,10 +308,10 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
 
   double get _bottomPadding => (!kIsWeb && Platform.isIOS)
       ? (_focusNode.hasFocus
-          ? bottomPadding1
-          : View.of(context).viewPadding.bottom > 0
-              ? bottomPadding2
-              : bottomPadding3)
+            ? bottomPadding1
+            : View.of(context).viewPadding.bottom > 0
+            ? bottomPadding2
+            : bottomPadding3)
       : bottomPadding3;
 
   @override
